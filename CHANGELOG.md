@@ -23,6 +23,20 @@ All notable changes to `pi-handoff` are documented here.
 
 - None.
 
+## [1.1.3] - 2026-03-04
+
+### Added
+
+- None.
+
+### Changed
+
+- None.
+
+### Fixed
+
+- Fixed `/handoff` race condition where handoff note capture could run before the assistant response was persisted, causing false "Failed to capture handoff note" errors.
+
 ## [1.1.2] - 2026-02-17
 
 ### Added

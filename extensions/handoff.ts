@@ -7,7 +7,10 @@
  *   /handoff check other places that need this fix
  */
 
-import type { ExtensionAPI, SessionEntry } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, SessionEntry } from "@mariozechner/pi-coding-agent";
+
+const HANDOFF_TIMEOUT_MS = 30000;
+const HANDOFF_POLL_INTERVAL_MS = 25;
 
 const HANDOFF_INSTRUCTIONS = `You are writing a handoff note for another AI agent with NO access to this chat.
 
@@ -29,15 +32,101 @@ Output:
 - Markdown only.
 - Handoff context only (do not restate the task).`;
 
-function getAssistantText(entries: SessionEntry[], fromIndex: number): string | null {
+function getRoleMessage(entry: SessionEntry, role: "user" | "assistant") {
+  if (entry.type !== "message") {
+    return null;
+  }
+
+  const message = entry.message;
+  if (!message || !("role" in message) || message.role !== role) {
+    return null;
+  }
+
+  return message;
+}
+
+function getMessageText(entry: SessionEntry): string {
+  if (entry.type !== "message" || !entry.message) {
+    return "";
+  }
+
+  const content = entry.message.content;
+  if (typeof content === "string") {
+    return content.trim();
+  }
+
+  if (!Array.isArray(content)) {
+    return "";
+  }
+
+  return content
+    .filter((block): block is { type: "text"; text: string } => block.type === "text")
+    .map((block) => block.text)
+    .join("\n")
+    .trim();
+}
+
+function findUserMessageIndex(entries: SessionEntry[], fromIndex: number, text: string): number {
   for (let i = entries.length - 1; i >= fromIndex; i--) {
     const entry = entries[i];
-    if (entry.type !== "message") {
+    if (!getRoleMessage(entry, "user")) {
       continue;
     }
 
-    const message = entry.message;
-    if (!("role" in message) || message.role !== "assistant") {
+    if (getMessageText(entry) === text) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function hasAssistantAfterIndex(entries: SessionEntry[], fromIndex: number): boolean {
+  for (let i = entries.length - 1; i > fromIndex; i--) {
+    const entry = entries[i];
+    if (getRoleMessage(entry, "assistant")) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+type HandoffTurn = {
+  branch: SessionEntry[];
+  handoffUserIndex: number;
+};
+
+async function waitForHandoffTurn(
+  ctx: ExtensionCommandContext,
+  startIndex: number,
+  handoffRequest: string,
+  timeoutMs = HANDOFF_TIMEOUT_MS,
+): Promise<HandoffTurn | null> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const branch = ctx.sessionManager.getBranch();
+    const handoffUserIndex = findUserMessageIndex(branch, startIndex, handoffRequest);
+
+    if (handoffUserIndex !== -1 && hasAssistantAfterIndex(branch, handoffUserIndex) && ctx.isIdle()) {
+      return {
+        branch,
+        handoffUserIndex,
+      };
+    }
+
+    await new Promise<void>((resolve) => setTimeout(resolve, HANDOFF_POLL_INTERVAL_MS));
+  }
+
+  return null;
+}
+
+function getAssistantText(entries: SessionEntry[], fromIndex: number): string | null {
+  for (let i = entries.length - 1; i >= fromIndex; i--) {
+    const entry = entries[i];
+    const message = getRoleMessage(entry, "assistant");
+    if (!message) {
       continue;
     }
 
@@ -45,12 +134,7 @@ function getAssistantText(entries: SessionEntry[], fromIndex: number): string | 
       return null;
     }
 
-    const text = message.content
-      .filter((content): content is { type: "text"; text: string } => content.type === "text")
-      .map((content) => content.text)
-      .join("\n")
-      .trim();
-
+    const text = getMessageText(entry);
     if (text.length > 0) {
       return text;
     }
@@ -79,8 +163,7 @@ export default function(pi: ExtensionAPI) {
       }
 
       const currentSessionFile = ctx.sessionManager.getSessionFile();
-      const branchBefore = ctx.sessionManager.getBranch();
-      const startIndex = branchBefore.length;
+      const startIndex = ctx.sessionManager.getBranch().length;
 
       const handoffRequest = `${HANDOFF_INSTRUCTIONS}\n\nTask for the next agent:\n${task}`;
 
@@ -91,12 +174,14 @@ export default function(pi: ExtensionAPI) {
       }
 
       notify("Generating handoff note...", "info");
-      // Yield one tick so sendUserMessage can enqueue before waitForIdle observes state.
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      await ctx.waitForIdle();
+      const handoffTurn = await waitForHandoffTurn(ctx, startIndex, handoffRequest);
 
-      const branchAfter = ctx.sessionManager.getBranch();
-      const handoffNote = getAssistantText(branchAfter, startIndex);
+      if (!handoffTurn) {
+        notify("Timed out waiting for handoff note", "error");
+        return;
+      }
+
+      const handoffNote = getAssistantText(handoffTurn.branch, handoffTurn.handoffUserIndex + 1);
 
       if (!handoffNote) {
         notify("Failed to capture handoff note from the assistant response", "error");
