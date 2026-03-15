@@ -13,11 +13,15 @@ All notable changes to `pi-handoff` are documented here.
 
 ### Added
 
-- None.
+- Added `/handoff-save [--path <path>] <task>` to generate and save portable handoff prompts (default path: `~/.pi/handoff/latest.md`).
+- Added `--path` option support to `/handoff-view` and `/handoff-load`.
+- Added `/handoff-load --delete-after-load` to send a saved handoff prompt and then delete the file.
 
 ### Changed
 
-- None.
+- Removed `/handoff --write` in favor of explicit `/handoff-save` command to simplify the workflow.
+- Updated `/handoff-load` and `/handoff-view` to use `--path` instead of positional path arguments.
+- Updated README usage/docs with the save/load/view path-flag workflow.
 
 ### Fixed
 

@@ -26,23 +26,54 @@ pi -e git:github.com/default-anton/pi-handoff
 
 ## What it does
 
-- Registers a `/handoff` command.
+- Registers `/handoff`, `/handoff-save`, `/handoff-load`, and `/handoff-view` commands.
 - Generates a concise handoff note from current session context.
-- Creates a new session linked to the current session.
-- Sends handoff context plus task into the new session immediately.
+- By default: `/handoff` creates a new session linked to the current session and sends handoff context plus task immediately.
+- Cross-directory/worktree workflow:
+  - `/handoff-save ...` generates and saves a portable handoff file (default: `~/.pi/handoff/latest.md`).
+  - `/handoff-load ...` loads that file into the current session.
+  - `/handoff-view ...` previews the file in editor without sending.
 
 ## Command usage
 
 ```bash
-/handoff <goal or task for new thread>
+/handoff [--draft] <goal or task for new thread>
+/handoff-save [--path <path>] <goal or task for new thread>
+/handoff-load [--path <path>] [--view] [--delete-after-load]
+/handoff-view [--path <path>]
 ```
 
 Examples:
 
+> Note: `--write` on `/handoff` has been replaced by `/handoff-save`.
+
 ```bash
+# Default: create a new linked session and send the handoff there
 /handoff now implement this for teams as well
-/handoff execute phase one of the plan
-/handoff check other places that need this fix
+
+# Draft-only: keep current session, place prompt in editor for manual copy/paste
+/handoff --draft execute phase one of the plan
+
+# Save a portable handoff file (default path: ~/.pi/handoff/latest.md)
+/handoff-save check other places that need this fix
+
+# Save to a custom file
+/handoff-save --path ~/.pi/handoff/teams-fix.md check other places that need this fix
+
+# In another directory/worktree session, load and send it automatically
+/handoff-load
+
+# Preview without sending
+/handoff-view
+# (or via handoff-load)
+/handoff-load --view
+
+# Load and remove the file afterwards
+/handoff-load --delete-after-load
+
+# Load/view from a custom path
+/handoff-load --path ~/.pi/handoff/teams-fix.md
+/handoff-view --path ~/.pi/handoff/teams-fix.md
 ```
 
 ## Requirements
