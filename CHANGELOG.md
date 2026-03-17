@@ -25,7 +25,7 @@ All notable changes to `pi-handoff` are documented here.
 
 ### Fixed
 
-- None.
+- Fixed `/handoff-save` in interactive UI so it only writes the handoff file and no longer pre-fills the input editor.
 
 ## [1.1.4] - 2026-03-12
 

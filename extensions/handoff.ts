@@ -510,10 +510,6 @@ export default function(pi: ExtensionAPI) {
         return;
       }
 
-      if (ctx.ui) {
-        ctx.ui.setEditorText(handoffPrompt);
-      }
-
       notify(`Handoff saved to ${filePath}`, "info");
     },
   });
