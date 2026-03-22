@@ -1,5 +1,15 @@
 # pi-handoff
 
+> [!IMPORTANT]
+> This repository is a customized fork of [default-anton/pi-handoff](https://github.com/default-anton/pi-handoff).
+>
+> **What this fork adds**
+> - **Portable handoff files** with `/handoff-save`, `/handoff-load`, and `/handoff-view` for cross-directory and worktree workflows
+> - **Draft mode** via `/handoff --draft`, so you can review or tweak the generated handoff before sending it
+> - **Custom file paths and cleanup options**, including `--path` and `/handoff-load --delete-after-load`
+>
+> The rest of this README largely follows upstream so future syncs stay simple.
+
 Handoff command extension package for [pi](https://github.com/badlogic/pi-mono).
 
 ## Installation
