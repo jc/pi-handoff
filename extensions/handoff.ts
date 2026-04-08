@@ -36,6 +36,8 @@ const HANDOFF_PATH_FLAG = "--path";
 const HANDOFF_LOAD_VIEW_FLAG = "--view";
 const HANDOFF_DELETE_AFTER_LOAD_FLAG = "--delete-after-load";
 const DEFAULT_HANDOFF_FILE = "~/.pi/handoff/latest.md";
+const HANDOFF_PENDING_AUTO_SEND_ENTRY = "handoff-pending-auto-send";
+const HANDOFF_AUTO_SEND_COMPLETE_ENTRY = "handoff-auto-send-complete";
 
 const HANDOFF_INSTRUCTIONS = `You are writing a handoff note for another AI agent with NO access to this chat.
 
@@ -86,6 +88,46 @@ type HandoffTurn = {
   branch: SessionEntry[];
   handoffUserIndex: number;
 };
+
+type PendingHandoffAutoSend = {
+  entryId: string;
+  prompt: string;
+};
+
+function findPendingHandoffAutoSend(entries: SessionEntry[]): PendingHandoffAutoSend | null {
+  let pending: PendingHandoffAutoSend | null = null;
+  const completedEntryIds = new Set<string>();
+
+  for (const entry of entries) {
+    if (entry.type !== "custom") {
+      continue;
+    }
+
+    if (entry.customType === HANDOFF_PENDING_AUTO_SEND_ENTRY) {
+      const data = entry.data;
+      if (isRecord(data) && typeof data.prompt === "string" && data.prompt.trim().length > 0) {
+        pending = {
+          entryId: entry.id,
+          prompt: data.prompt,
+        };
+      }
+      continue;
+    }
+
+    if (entry.customType === HANDOFF_AUTO_SEND_COMPLETE_ENTRY) {
+      const data = entry.data;
+      if (isRecord(data) && typeof data.pendingEntryId === "string") {
+        completedEntryIds.add(data.pendingEntryId);
+      }
+    }
+  }
+
+  if (!pending || completedEntryIds.has(pending.entryId)) {
+    return null;
+  }
+
+  return pending;
+}
 
 function getRoleMessage(entry: SessionEntry, role: "user" | "assistant"): RoleMessage | null {
   if (entry.type !== "message" || !isRecord(entry.message)) {
@@ -447,6 +489,26 @@ async function generateHandoffPrompt(
 }
 
 export default function(pi: ExtensionAPI) {
+  pi.on("session_start", async (_event, ctx) => {
+    const pending = findPendingHandoffAutoSend(ctx.sessionManager.getBranch());
+    if (!pending) {
+      return;
+    }
+
+    setTimeout(() => {
+      try {
+        pi.sendUserMessage(pending.prompt);
+        pi.appendEntry(HANDOFF_AUTO_SEND_COMPLETE_ENTRY, {
+          pendingEntryId: pending.entryId,
+        });
+        ctx.ui?.notify?.("Handoff sent to the new session.", "info");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        ctx.ui?.notify?.(`Failed to send queued handoff: ${message}`, "error");
+      }
+    }, 0);
+  });
+
   pi.registerCommand("handoff", {
     description: "Transfer context to a new focused session (or draft to editor)",
     handler: async (args, ctx) => {
@@ -484,14 +546,10 @@ export default function(pi: ExtensionAPI) {
 
       const newSessionResult = await ctx.newSession({
         parentSession: currentSessionFile,
-        withSession: async (newSessionCtx) => {
-          if (newSessionCtx.isIdle()) {
-            await newSessionCtx.sendUserMessage(promptForNewSession);
-          } else {
-            await newSessionCtx.sendUserMessage(promptForNewSession, { deliverAs: "followUp" });
-          }
-
-          newSessionCtx.ui?.notify?.("Handoff sent to the new session.", "info");
+        setup: async (sessionManager) => {
+          sessionManager.appendCustomEntry(HANDOFF_PENDING_AUTO_SEND_ENTRY, {
+            prompt: promptForNewSession,
+          });
         },
       });
 

@@ -25,6 +25,7 @@ All notable changes to `pi-handoff` are documented here.
 
 ### Fixed
 
+- Fixed `/handoff` on newer pi releases so the generated handoff is queued through the new session runtime and reliably sent after the session switch.
 - Fixed `/handoff-save` in interactive UI so it only writes the handoff file and no longer pre-fills the input editor.
 
 ## [1.1.8] - 2026-04-22
