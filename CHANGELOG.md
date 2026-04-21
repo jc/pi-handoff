@@ -23,6 +23,20 @@ All notable changes to `pi-handoff` are documented here.
 
 - None.
 
+## [1.1.7] - 2026-04-21
+
+### Added
+
+- None.
+
+### Changed
+
+- Updated peer dependency `@mariozechner/pi-coding-agent` to `^0.68.0` for pi 0.68.x compatibility.
+
+### Fixed
+
+- Synced release validation with CI so stale `package-lock.json` changes fail before tagging instead of during the publish workflow.
+
 ## [1.1.6] - 2026-04-21
 
 ### Added
