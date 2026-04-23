@@ -211,24 +211,24 @@ export default function(pi: ExtensionAPI) {
         return;
       }
 
+      const promptForNewSession = `${handoffNote}\n\n---\n\n## Task\n${task}`;
+
       const newSessionResult = await ctx.newSession({
         parentSession: currentSessionFile,
+        withSession: async (newSessionCtx) => {
+          if (newSessionCtx.isIdle()) {
+            await newSessionCtx.sendUserMessage(promptForNewSession);
+          } else {
+            await newSessionCtx.sendUserMessage(promptForNewSession, { deliverAs: "followUp" });
+          }
+
+          newSessionCtx.ui?.notify?.("Handoff sent to the new session.", "info");
+        },
       });
 
       if (newSessionResult.cancelled) {
         notify("New session cancelled", "info");
-        return;
       }
-
-      const promptForNewSession = `${handoffNote}\n\n---\n\n## Task\n${task}`;
-
-      if (ctx.isIdle()) {
-        pi.sendUserMessage(promptForNewSession);
-      } else {
-        pi.sendUserMessage(promptForNewSession, { deliverAs: "followUp" });
-      }
-
-      notify("Handoff sent to the new session.", "info");
     },
   });
 }

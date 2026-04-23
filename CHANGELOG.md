@@ -23,6 +23,21 @@ All notable changes to `pi-handoff` are documented here.
 
 - None.
 
+## [1.1.8] - 2026-04-22
+
+### Added
+
+- None.
+
+### Changed
+
+- Updated peer dependency `@mariozechner/pi-coding-agent` to `^0.69.0` for pi 0.69.x compatibility.
+
+### Fixed
+
+- Moved post-`ctx.newSession()` work into `withSession` so `/handoff` stays compatible with pi 0.69.x session replacement invalidation.
+
+
 ## [1.1.7] - 2026-04-21
 
 ### Added
